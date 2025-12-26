@@ -116,6 +116,26 @@ class FlyappyRos:
             self._logger.info(f"Crash detected, recieved: {msg.data}")
         else:
             self._logger.info(f"End of countdown, recieved: {msg.data}")
+        
+        # Reset position estimator and mapping
+        self._position_estimator.reset()
+        self._occupancy_grid_mapper.reset()
+
+        # Reset controllers
+        self._proportional_controller.reset()
+        self._state_feedback_controller.reset()
+
+        # Reset current and previous position and velocity
+        self._current_position = np.array([0.0, 1.0])
+        self._previous_position = np.array([0.0, 1.0])
+        self._current_velocity = np.array([0.0, 0.0])   
+
+        # Reset target position
+        self._target_pos = (0.0, 0.0)
+        self._hole = None
+
+        # Reset sensor data
+        self._current_laser_scan = None
 
     # Perception callback function
     def perception_callback(self) -> None:

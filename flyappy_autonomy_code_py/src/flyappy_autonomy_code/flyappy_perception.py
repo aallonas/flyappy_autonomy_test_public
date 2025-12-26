@@ -164,11 +164,12 @@ class OccupancyGridMapper:
         """
         return (index[0] * self.map_resolution, index[1] * self.map_resolution)
 
-    def map_reset(
+    def reset(
             self
             ) -> None:
-        """ Reset the occupancy grid map to unknown values. """
+        """ Reset the occupancy grid map to unknown values and origin to (0,0). """
         self.obstacle_map.fill(127)
+        self.map_origin = (0.0, 0.0)
 
     def map_get(
             self
@@ -289,8 +290,8 @@ class PositionEstimator:
         """
         self.current_position = position
 
-    def reset_position(
+    def reset(
             self
             ) -> None:
         """ Reset the position estimator to the origin. """
-        self.current_position = (0.0, 0.0)
+        self.current_position = (0.0, 1.5)
