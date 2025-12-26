@@ -1,40 +1,98 @@
-class FlyappyControl:
+from typing import Tuple
+import numpy as np
 
-    def __init__(self):
-        self.kp = 4.0      # position -> velocity
-        self.kd = 10.0     # velocity -> acceleration
+"""" control algorithms for the Flyappy autonomous agent """
 
-        self.v_max = 8.0   # velocity limit
-        self.a_max = 35.0  # acceleration limit
+class ProportionalController:
 
-    def pid_controller(self, setpoint, value, kp, ki, kd, previous_error, integral, dt):
-        error = setpoint - value
-        integral += error * dt
-        derivative = (error - previous_error) / dt
-        control = kp * error + ki * integral + kd * derivative
-        return control, error, integral
+    def __init__(
+            self,
+            kp: float = 4.0,
+            kd: float = 10.0,
+            acc_max: float = 3.0, 
+            ) -> None:
+        # Controller gains
+        self.kp = kp     
+        self.kd = kd
+        self.acc_max = acc_max
+
+    def control_step(
+            self,
+            setpoint : float,
+            velocity: float,
+            dt: float
+            ) -> float:
+        """ Proportional controller 
+        
+        Args:
+            setpoint (float): Desired velocity [m/s]
+            velocity (float): Current velocity [m/s]
+        
+        Returns:
+            acceleration (float): Control output [m/s²]
+            error (float): Current velocity error [m/s]
+        """
+        # Compute error
+        error = setpoint - velocity
+        acceleration = self.kp * error 
+        # Enforce acceleration limits
+        acceleration = np.clip(acceleration, -self.acc_max, self.acc_max)
+        return acceleration
     
-    def state_feedback_controller(self,
-                                  value: float,
-                                  velocity: float,
-                                  setpoint: float,
-                                  ) -> float:
-        pos_error = setpoint - value
-        v_des = self.kp * pos_error
-
-        # Target velocity
-        v_des = max(min(v_des, self.v_max), -self.v_max)
-
-        # Computed acceleration
-        a = self.kd * (v_des - velocity)
-
-        # acceleration clamp
-        a = max(min(a, self.a_max), -self.a_max)
-
-        return a
-                                
-                                  
+    def reset(self) -> None:
+        pass
 
 
+class StateFeedbackController:
 
+    def __init__(
+            self,
+            kp: float = 4.0,
+            kd: float = 10.0,
+            vel_max: float = 8.0,
+            acc_max: float = 35.0,
+            ) -> None:
+        # Controller gains
+        self.kp = kp     
+        self.kd = kd
+        # Limits
+        self.vel_max = vel_max
+        self.acc_max = acc_max
 
+    def control_step(
+            self,
+            setpoint: float,
+            position: float,
+            velocity: float
+            ) -> float:
+        """ State feedback controller
+
+        Uses a two step approach:
+        1. Position error -> desired velocity
+            - Proportional controller
+            - Enforce velocity limits
+        2. Velocity error -> acceleration command
+            - Derivative controller
+            - Enforce acceleration limits
+
+        Args:
+            position (float): Current position [m]
+            velocity (float): Current velocity [m/s]
+            setpoint (float): Desired position [m]
+
+        Returns:
+            acceleration (float): Acceleration command [m/s²]
+        """
+
+        # Step 1: Position error to desired velocity
+        pos_error = setpoint - position
+        vel_des = self.kp * pos_error
+        vel_des = np.clip(vel_des, -self.vel_max, self.vel_max)
+
+        # Step 2: Velocity error to acceleration
+        acceleration = self.kd * (vel_des - velocity)
+        acceleration = np.clip(acceleration, -self.acc_max, self.acc_max)
+        return float(acceleration)
+    
+    def reset(self) -> None:
+        pass

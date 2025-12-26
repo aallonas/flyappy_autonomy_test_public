@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 
 import rclpy
-from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Vector3
-from std_msgs.msg import Bool
 
 from flyappy_autonomy_code.flyappy_ros import FlyappyRos
 
