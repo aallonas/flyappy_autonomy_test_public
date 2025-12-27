@@ -243,9 +243,15 @@ class PositionEstimator:
     """
 
     def __init__(
-            self
+            self,
+            initial_position: Tuple[float, float] = (0.0, 1.5)
             )-> None:
-        self.current_position: Tuple[float, float] = (0.0, 1.5)
+        """" Initialize the position estimator.
+        
+        Args:
+            initial_position (Tuple[float, float]): Initial position (x, y).
+        """
+        self.current_position: Tuple[float, float] = initial_position
 
     def update_position(
             self,
