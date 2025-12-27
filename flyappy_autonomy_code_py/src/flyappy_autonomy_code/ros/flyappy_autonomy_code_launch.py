@@ -5,7 +5,15 @@ from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description() -> LaunchDescription:
-	"""Launch Flyappy perception, planning, and control nodes."""
+	"""Launch for the Flyappy autonomy code
+     
+    Launched nodes:
+        - perception_node
+        - planning_node
+        - control_node.
+        - rviz2 (if debug_mode is True)
+        - rqt_reconfigure (if debug_mode is True)
+"""
 
 	control_rate_arg = DeclareLaunchArgument(
 		"control_rate",
