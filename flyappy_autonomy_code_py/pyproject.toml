@@ -11,7 +11,11 @@ requires-python = ">=3.12"
 version = "0.0.0"
 readme = "README.md"
 
-dependencies = ["rclpy"]
+dependencies = [
+    "rclpy",
+    "opencv-python",
+    "numpy<1.28"
+    ]
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
