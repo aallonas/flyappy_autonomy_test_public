@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 
 
@@ -42,6 +43,18 @@ def generate_launch_description() -> LaunchDescription:
 		output="screen",
 	)
 
+	rviz_node = ExecuteProcess(
+		cmd=["rviz2"],
+		output="screen",
+		condition=IfCondition(LaunchConfiguration("debug_mode")),
+	)
+
+	rqt_reconfigure_node = ExecuteProcess(
+		cmd=["ros2", "run", "rqt_reconfigure", "rqt_reconfigure"],
+		output="screen",
+		condition=IfCondition(LaunchConfiguration("debug_mode")),
+	)
+
 	return LaunchDescription(
 		[
 			control_rate_arg,
@@ -51,6 +64,8 @@ def generate_launch_description() -> LaunchDescription:
 			control_node,
 			perception_node,
 			planning_node,
+			rviz_node,
+			rqt_reconfigure_node,
 		]
 	)
 
