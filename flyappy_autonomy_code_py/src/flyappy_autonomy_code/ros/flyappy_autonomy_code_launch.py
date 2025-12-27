@@ -1,0 +1,65 @@
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.substitutions import LaunchConfiguration
+
+
+def generate_launch_description() -> LaunchDescription:
+	"""Launch Flyappy perception, planning, and control nodes."""
+
+	control_rate_arg = DeclareLaunchArgument(
+		"control_rate",
+		default_value="30.0",
+		description="Control loop frequency (Hz)",
+	)
+	perception_rate_arg = DeclareLaunchArgument(
+		"perception_rate",
+		default_value="30.0",
+		description="Perception loop frequency (Hz)",
+	)
+	planning_rate_arg = DeclareLaunchArgument(
+		"planning_rate",
+		default_value="30.0",
+		description="Planning loop frequency (Hz)",
+	)
+	debug_mode_arg = DeclareLaunchArgument(
+		"debug_mode",
+		default_value="True",
+		description="Enable perception debug visuals/logging",
+	)
+
+	control_node = ExecuteProcess(
+		cmd=["control_node"],
+		output="screen",
+	)
+
+	perception_node = ExecuteProcess(
+		cmd=["perception_node"],
+		output="screen",
+	)
+
+	planning_node = ExecuteProcess(
+		cmd=["planning_node"],
+		output="screen",
+	)
+
+	return LaunchDescription(
+		[
+			control_rate_arg,
+			perception_rate_arg,
+			planning_rate_arg,
+			debug_mode_arg,
+			control_node,
+			perception_node,
+			planning_node,
+		]
+	)
+
+def main() -> None:
+    from launch.launch_service import LaunchService
+    ls = LaunchService(argv=[])
+    ls.include_launch_description(generate_launch_description())
+    ls.run()
+
+
+if __name__ == "__main__":
+    main()

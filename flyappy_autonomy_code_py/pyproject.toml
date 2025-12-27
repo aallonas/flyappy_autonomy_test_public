@@ -32,6 +32,7 @@ flyappy_autonomy_code_node = "flyappy_autonomy_code.ros.flyappy_autonomy_code_no
 control_node = "flyappy_autonomy_code.ros.control_node:main"
 perception_node = "flyappy_autonomy_code.ros.perception_node:main"
 planning_node = "flyappy_autonomy_code.ros.planning_node:main"
+flyappy_autonomy_code_launch = "flyappy_autonomy_code.ros.flyappy_autonomy_code_launch:main"
 
 ######### TOOLS #########
 [tool.black]
