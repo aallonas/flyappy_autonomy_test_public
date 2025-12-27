@@ -8,12 +8,10 @@ class ProportionalController:
     def __init__(
             self,
             kp: float = 4.0,
-            kd: float = 10.0,
             acc_max: float = 3.0, 
             ) -> None:
         # Controller gains
         self.kp = kp     
-        self.kd = kd
         self.acc_max = acc_max
 
     def control_step(

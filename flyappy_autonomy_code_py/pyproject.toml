@@ -24,7 +24,7 @@ lint = [
 dev = ["flyappy_autonomy_code[lint]", "flyappy_autonomy_code[test]"]
 
 [project.scripts]
-flyappy_autonomy_code_node = "flyappy_autonomy_code.flyappy_autonomy_code_node:main"
+flyappy_autonomy_code_node = "flyappy_autonomy_code.ros.flyappy_autonomy_code_node:main"
 
 ######### TOOLS #########
 [tool.black]

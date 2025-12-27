@@ -2,7 +2,7 @@
 
 import rclpy
 
-from flyappy_autonomy_code.flyappy_ros import FlyappyRos
+from flyappy_autonomy_code.ros.flyappy_ros import FlyappyRos
 
 
 def main() -> None:

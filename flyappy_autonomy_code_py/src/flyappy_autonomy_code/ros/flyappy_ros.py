@@ -2,9 +2,9 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
-from flyappy_autonomy_code.flyappy_control import ProportionalController, StateFeedbackController
-from flyappy_autonomy_code.flyappy_perception import OccupancyGridMapper, PositionEstimator
-from flyappy_autonomy_code.flyappy_planning import GapFinder
+from flyappy_autonomy_code.core.flyappy_control import ProportionalController, StateFeedbackController
+from flyappy_autonomy_code.core.flyappy_perception import OccupancyGridMapper, PositionEstimator
+from flyappy_autonomy_code.core.flyappy_planning import GapFinder
 import numpy as np
 from numpy import typing as npt
 from typing import Optional
