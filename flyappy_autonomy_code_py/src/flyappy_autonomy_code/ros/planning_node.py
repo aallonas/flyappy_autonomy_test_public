@@ -2,6 +2,7 @@ import time
 import rclpy
 import numpy as np
 from rclpy.node import Node
+from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
 from nav_msgs.msg import OccupancyGrid
@@ -48,16 +49,16 @@ class FlyappyPlanningNode(Node):
 
     def position_callback(self, msg: Vector3) -> None:
         self._current_position = np.array([msg.x, msg.y], dtype=np.float64)
-        self.get_logger().info(
-            f"Estimated position: [{msg.x:.2f},{msg.y:.2f}]", throttle_duration_sec=1
-        )
+        #self.get_logger().info(
+        #    f"Estimated position: [{msg.x:.2f},{msg.y:.2f}]", throttle_duration_sec=1
+        #)
 
     def obstacle_map_callback(self, msg: OccupancyGrid) -> None:
         # Convert from ROS [-1, 0, 100] format and reshape to 2D
         self._obstacle_map = np.array(msg.data, dtype=np.int8).reshape((msg.info.height, msg.info.width))
-        self.get_logger().info(
-            f"Obstacle map received with shape {self._obstacle_map.shape}", throttle_duration_sec=1
-        )
+        #self.get_logger().info(
+        #    f"Obstacle map received with shape {self._obstacle_map.shape}", throttle_duration_sec=1
+        #)
 
     def game_ended_callback(self, msg: Bool) -> None:
         if msg.data:
@@ -99,17 +100,17 @@ class FlyappyPlanningNode(Node):
                 Vector3(x=float(self._target_pos[0]), y=float(self._target_pos[1]), z=0.0)
             )
 
-            self.get_logger().info(
-                f"Hole found at: {self._hole} converted to position: {self._target_pos}",
-                throttle_duration_sec=1,
-            )
+            #self.get_logger().info(
+            #    f"Hole found at: {self._hole} converted to position: {self._target_pos}",
+            #    throttle_duration_sec=1,
+            #)
 
         except Exception as e:
             self.get_logger().error(f"Planning loop error: {e}")
 
         finally:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"[TIMING] Planning loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1
             )
 

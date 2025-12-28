@@ -1,7 +1,17 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
+import sys
+import os
+
+
+def _parse_rviz_display(argv):
+	"""Extract rviz_display value from argv."""
+	for arg in argv:
+		if arg.startswith("rviz_display:="):
+			return arg.split(":=")[1].lower() in ("true", "1", "yes")
+	return True  # default to True
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -11,9 +21,11 @@ def generate_launch_description() -> LaunchDescription:
         - perception_node
         - planning_node
         - control_node.
-        - rviz2 (if debug_mode is True)
-        - rqt_reconfigure (if debug_mode is True)
-"""
+        - rviz2 (if rviz_display is True)
+    """
+	
+	# Parse rviz_display from CLI args
+	rviz_display = _parse_rviz_display(sys.argv[1:])
 
 	control_rate_arg = DeclareLaunchArgument(
 		"control_rate",
@@ -30,10 +42,10 @@ def generate_launch_description() -> LaunchDescription:
 		default_value="30.0",
 		description="Planning loop frequency (Hz)",
 	)
-	debug_mode_arg = DeclareLaunchArgument(
-		"debug_mode",
+	rviz_display_arg = DeclareLaunchArgument(
+		"rviz_display",
 		default_value="True",
-		description="Enable perception debug visuals/logging",
+		description="Opens rviz2 with config to visualize OccupancyGrid",
 	)
 
 	control_node = ExecuteProcess(
@@ -51,35 +63,31 @@ def generate_launch_description() -> LaunchDescription:
 		output="screen",
 	)
 
-	rviz_node = ExecuteProcess(
-		cmd=["rviz2"],
-		output="screen",
-		condition=IfCondition(LaunchConfiguration("debug_mode")),
-	)
+	# Only add RViz2 and rqt if debug_mode is enabled
+	nodes = [
+		control_rate_arg,
+		perception_rate_arg,
+		planning_rate_arg,
+		rviz_display_arg,
+		control_node,
+		perception_node,
+		planning_node,
+	]
 
-	rqt_reconfigure_node = ExecuteProcess(
-		cmd=["ros2", "run", "rqt_reconfigure", "rqt_reconfigure"],
-		output="screen",
-		condition=IfCondition(LaunchConfiguration("debug_mode")),
-	)
+	if rviz_display:
+		rviz_config_path = os.path.join(os.path.dirname(__file__), "rviz", "flyappy_viewer.rviz")
+		rviz_node = ExecuteProcess(
+			cmd=["rviz2", "-d", rviz_config_path],
+			output="screen",
+		)
+		nodes.append(rviz_node)
 
-	return LaunchDescription(
-		[
-			control_rate_arg,
-			perception_rate_arg,
-			planning_rate_arg,
-			debug_mode_arg,
-			control_node,
-			perception_node,
-			planning_node,
-			rviz_node,
-			rqt_reconfigure_node,
-		]
-	)
+	return LaunchDescription(nodes)
+
 
 def main() -> None:
     from launch.launch_service import LaunchService
-    ls = LaunchService(argv=[])
+    ls = LaunchService(argv=sys.argv[1:])
     ls.include_launch_description(generate_launch_description())
     ls.run()
 

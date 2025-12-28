@@ -1,7 +1,8 @@
 import time
-
+import rclpy
 import numpy as np
 from rclpy.node import Node
+from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
 
@@ -41,15 +42,15 @@ class FlyappyControlNode(Node):
 
     def velocity_callback(self, msg: Vector3) -> None:
         self._current_velocity = np.array([msg.x, msg.y], dtype=np.float64)
-        self.get_logger().info(f"Velocity: [{msg.x},{msg.y},{msg.z}]", throttle_duration_sec=1)
+        #self.get_logger().info(f"Velocity: [{msg.x},{msg.y},{msg.z}]", throttle_duration_sec=1)
 
     def position_callback(self, msg: Vector3) -> None:
         self._current_position = np.array([msg.x, msg.y], dtype=np.float64)
-        self.get_logger().info(f"Estimated position: [{msg.x},{msg.y}]", throttle_duration_sec=1)
+        #self.get_logger().info(f"Estimated position: [{msg.x},{msg.y}]", throttle_duration_sec=1)
 
     def target_pos_callback(self, msg: Vector3) -> None:
         self._target_pos = (msg.x, msg.y)
-        self.get_logger().info(f"Target position: [{msg.x},{msg.y}]", throttle_duration_sec=1)
+        #self.get_logger().info(f"Target position: [{msg.x},{msg.y}]", throttle_duration_sec=1)
 
     def game_ended_callback(self, msg: Bool) -> None:
         if msg.data:
@@ -83,20 +84,16 @@ class FlyappyControlNode(Node):
             )
 
             self._pub_acc_cmd.publish(Vector3(x=float(x_acc), y=float(y_acc), z=0.0))
-            self.get_logger().info(
-                f"target_pos: {self._target_pos}, current_pos: [{self._current_position[0]},{self._current_position[1]}]",
-                throttle_duration_sec=1,
-            )
             
         except Exception as e:
             self.get_logger().error(f"Control loop error: {e}")
         finally:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            self.get_logger().info(f"[TIMING] Control loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1)
+            self.get_logger().debug(f"[TIMING] Control loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1)
 
 
 def main(args=None) -> None:
-    import rclpy
+    
     rclpy.init(args=args)
     node = FlyappyControlNode()
     try:  

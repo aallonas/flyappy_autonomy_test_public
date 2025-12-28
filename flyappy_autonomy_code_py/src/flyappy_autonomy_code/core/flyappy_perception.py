@@ -285,9 +285,9 @@ class OccupancyGridMapper:
         grid_msg.info.width = self.map_size[1]  # Width in cells
         grid_msg.info.height = self.map_size[0]  # Height in cells
         
-        # Origin (bottom-left corner of the map in world coordinates)
-        grid_msg.info.origin.position.x = float(self.map_origin[0])
-        grid_msg.info.origin.position.y = float(self.map_origin[1])
+        # Origin in the map frame: keep at (0,0) because the map frame itself moves via TF
+        grid_msg.info.origin.position.x = 0.0
+        grid_msg.info.origin.position.y = 0.0
         grid_msg.info.origin.position.z = 0.0
         grid_msg.info.origin.orientation.w = 1.0  # No rotation
         
