@@ -1,10 +1,17 @@
 import sys
 from unittest.mock import MagicMock
 
-# Fake sensor_msgs.msg.LaserScan
-sys.modules['sensor_msgs'] = MagicMock()
-sys.modules['sensor_msgs.msg'] = MagicMock()
-
+# Mock ROS message packages so imports in core modules don't fail during pytest.
+for pkg in (
+    "sensor_msgs",
+    "sensor_msgs.msg",
+    "nav_msgs",
+    "nav_msgs.msg",
+    "geometry_msgs",
+    "geometry_msgs.msg",
+):
+    sys.modules[pkg] = MagicMock()
+    
 from flyappy_autonomy_code.core.flyappy_perception import PositionEstimator, OccupancyGridMapper
 
 import numpy as np
@@ -63,7 +70,7 @@ def test_map_roll():
          
     Expectation:
         - After rolling, the map is shifted correctly
-        - New areas are filled with unknown value (127)
+        - New areas are filled with unknown value (-1)
         - The map origin is updated correctly, meaning by the floored
           value of the agent's position.
     """
@@ -76,8 +83,8 @@ def test_map_roll():
         [10, 11, 12, 13, 14],
         [15, 16, 17, 18, 19],
         [20, 21, 22, 23, 24],
-        [127, 127, 127, 127, 127],
-        [127, 127, 127, 127, 127]
+        [-1, -1, -1, -1, -1],
+        [-1, -1, -1, -1, -1]
 
     ])
     assert np.array_equal(mapper.obstacle_map, expected_map)
@@ -100,11 +107,11 @@ def test_map_add_scan(simple_scan, mapper):
     )
 
     expected_map = np.array([
-        [127, 127, 127, 127, 127],
-        [127, 127,   0, 127, 127],
-        [127, 127,   0, 127, 127],
-        [127, 127, 255, 127, 127],
-        [127, 127, 127, 127, 127]
+        [-1, -1, -1, -1, -1],
+        [-1, -1,   0, -1, -1],
+        [-1, -1,   0, -1, -1],
+        [-1, -1, 100, -1, -1],
+        [-1, -1, -1, -1, -1]
     ])
     print(mapper.obstacle_map)
     assert np.array_equal(mapper.obstacle_map, expected_map)
