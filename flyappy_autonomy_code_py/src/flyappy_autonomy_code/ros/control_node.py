@@ -2,7 +2,6 @@ import time
 import rclpy
 import numpy as np
 from rclpy.node import Node
-from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
 
@@ -71,7 +70,7 @@ class FlyappyControlNode(Node):
         try:
             # X-axis: keep forward speed at 2.0 using proportional controller
             x_acc = self._proportional_controller.control_step(
-                setpoint=2.0,
+                setpoint=1.8,
                 velocity=self._current_velocity[0],
                 dt=self.control_period,
             )
@@ -99,7 +98,7 @@ def main(args=None) -> None:
     try:  
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info("Node interrupted by user (KeyboardInterrupt).")
+        node.get_logger().info("KeyboardInterrupt: Control node shutting down.")
     finally:
         node.destroy_node()
         rclpy.shutdown()

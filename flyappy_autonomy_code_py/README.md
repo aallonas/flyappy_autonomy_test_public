@@ -23,6 +23,10 @@ flyappy_autonomy_code_py/
 
 ## Architecture
 
+### Core Modules (src/flyappy_autonomy_code/core/)
+
+The core modules implement the main autonomy functionalities, they are resposible for the core logic.
+
 - **`flyappy_perception.py`**:
   - `PositionEstimator`: Estimates agent position from odometry
   - `OccupancyGridMapper`: Builds 2D OccupancyGrid from LaserScan and odometry data
@@ -33,6 +37,18 @@ flyappy_autonomy_code_py/
 - **`flyappy_control.py`**:
   - `ProportionalController`: Computes velocity commands to reach targets
   - `StateFeedbackController`: Combines perception and planning to control the agent
+
+### ROS Wrappers  (src/flyappy_autonomy_code/ros/)
+
+The ROS wrappers expose the core modules as ROS 2 nodes, handling communication via topics.
+
+**`flyappy_autonomy_code_launch.py`**: Launch script to start the autonomy nodes with optional rviz visualization
+
+- **`perception_node.py`**: ROS node wrapping perception modules
+- **`planning_node.py`**: ROS node wrapping planning modules
+- **`control_node.py`**: ROS node wrapping control modules
+
+**`flyappy_autonomy_code_node.py`**: All-in-one ROS node combining perception, planning, and control
 
 ## Prerequisites
 

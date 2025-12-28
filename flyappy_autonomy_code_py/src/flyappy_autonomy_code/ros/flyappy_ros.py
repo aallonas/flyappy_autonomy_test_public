@@ -137,7 +137,7 @@ class FlyappyRos:
         finally:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             self._perception_max_ms = max(self._perception_max_ms, elapsed_ms)
-            self._logger.info(
+            self._logger.debug(
                 f"[TIMING] Perception loop: {elapsed_ms:.2f}ms (max: {self._perception_max_ms:.2f}ms)",
                 throttle_duration_sec=1,
             )
@@ -148,7 +148,7 @@ class FlyappyRos:
 
         try:
             x_acc = self._proportional_controller.control_step(
-                setpoint=2.0,
+                setpoint=1.8,
                 velocity=self._current_velocity[0],
                 dt=self.control_period,
             )
@@ -164,7 +164,7 @@ class FlyappyRos:
         
         finally:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            self._logger.info(f"[TIMING] Control loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1)
+            self._logger.debug(f"[TIMING] Control loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1)
 
     # Planning callback function
     def planning_callback(self) -> None:
@@ -182,4 +182,4 @@ class FlyappyRos:
 
         finally:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            self._logger.info(f"[TIMING] Planning loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1)
+            self._logger.debug(f"[TIMING] Planning loop: {elapsed_ms:.2f}ms", throttle_duration_sec=1)

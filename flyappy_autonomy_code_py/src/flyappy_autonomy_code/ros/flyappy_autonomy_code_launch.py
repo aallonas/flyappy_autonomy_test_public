@@ -20,7 +20,7 @@ Arguments:
     - control_rate: frequency of the control loop (set to 60.0 Hz)
     - perception_rate: frequency of the perception loop (set to 30.0 Hz)
     - planning_rate: frequency of the planning loop (set to 30.0 Hz)
-	- rviz_display: launch rviz2 for visualization at runtime (set to True)
+	- rviz_display: launch rviz2 for visualization at runtime (set default to True)
 	
 Launched nodes will be:
     - perception_node
