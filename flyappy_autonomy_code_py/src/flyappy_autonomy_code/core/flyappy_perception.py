@@ -5,8 +5,6 @@ from numpy.typing import NDArray
 from typing import Tuple
 
 
-
-
 class LaserScanProcessor:
     """Processes LaserScan messages into relative coordinates.
 
@@ -66,8 +64,6 @@ class LaserScanProcessor:
         misses = np.column_stack((rel_x[miss_mask], rel_y[miss_mask]))
 
         return hits, misses
-
-
 
 
 class OccupancyGridMapper:
@@ -353,8 +349,6 @@ class OccupancyGridMapper:
     
     
 # === End of line drawing algorithms ===
-
-
 
 
 class PositionEstimator:

@@ -5,6 +5,29 @@ from launch.substitutions import LaunchConfiguration, PythonExpression
 import sys
 import os
 
+"""
+This is the main entry point for one of the 2 Flyappy Autonomy Solutions.
+
+It initializes one ROS2 node for each functionality that are contained 
+in the FlyappyRos wrapper, this enhances compatibility with existing ROS2
+tools and is useful for debugging.
+
+To launch this node, use the following command inside the virtual environment: 
+
+    flyappy_autonomy_code_py_launch 
+
+Arguments:
+    - control_rate: frequency of the control loop (set to 60.0 Hz)
+    - perception_rate: frequency of the perception loop (set to 30.0 Hz)
+    - planning_rate: frequency of the planning loop (set to 30.0 Hz)
+	- rviz_display: launch rviz2 for visualization at runtime (set to True)
+	
+Launched nodes will be:
+    - perception_node
+    - planning_node
+    - control_node.
+    - rviz2 (if rviz_display is True)
+"""
 
 def _parse_rviz_display(argv):
 	"""Extract rviz_display value from argv."""
@@ -15,21 +38,14 @@ def _parse_rviz_display(argv):
 
 
 def generate_launch_description() -> LaunchDescription:
-	"""Launch for the Flyappy autonomy code
-     
-    Launched nodes:
-        - perception_node
-        - planning_node
-        - control_node.
-        - rviz2 (if rviz_display is True)
-    """
+	"""Launch for the Flyappy autonomy code"""
 	
 	# Parse rviz_display from CLI args
 	rviz_display = _parse_rviz_display(sys.argv[1:])
 
 	control_rate_arg = DeclareLaunchArgument(
 		"control_rate",
-		default_value="30.0",
+		default_value="60.0",
 		description="Control loop frequency (Hz)",
 	)
 	perception_rate_arg = DeclareLaunchArgument(
@@ -49,17 +65,29 @@ def generate_launch_description() -> LaunchDescription:
 	)
 
 	control_node = ExecuteProcess(
-		cmd=["control_node"],
+		cmd=[
+			"control_node",
+			"--ros-args",
+			"-p", PythonExpression(["'control_rate:=", LaunchConfiguration("control_rate"), "'"]),
+		],
 		output="screen",
 	)
 
 	perception_node = ExecuteProcess(
-		cmd=["perception_node"],
+		cmd=[
+			"perception_node",
+			"--ros-args",
+			"-p", PythonExpression(["'perception_rate:=", LaunchConfiguration("perception_rate"), "'"]),
+		],
 		output="screen",
 	)
 
 	planning_node = ExecuteProcess(
-		cmd=["planning_node"],
+		cmd=[
+			"planning_node",
+			"--ros-args",
+			"-p", PythonExpression(["'planning_rate:=", LaunchConfiguration("planning_rate"), "'"]),
+		],
 		output="screen",
 	)
 

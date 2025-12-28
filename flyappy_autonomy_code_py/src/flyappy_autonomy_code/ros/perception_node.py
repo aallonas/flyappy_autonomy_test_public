@@ -9,7 +9,6 @@ from std_msgs.msg import Bool
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster
 
-
 from flyappy_autonomy_code.core.flyappy_perception import OccupancyGridMapper, PositionEstimator, LaserScanProcessor
 
 
@@ -135,7 +134,7 @@ def main(args=None) -> None:
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info("Node interrupted by user (KeyboardInterrupt).")
+        node.get_logger().info("KeyboardInterrupt: Perception node shutting down.")
     finally:
         node.destroy_node()
         rclpy.shutdown()
