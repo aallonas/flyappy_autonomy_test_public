@@ -1,10 +1,10 @@
 import time
-
+import rclpy
 import numpy as np
 from rclpy.node import Node
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
-from std_msgs.msg import UInt8MultiArray
+from nav_msgs.msg import OccupancyGrid
 
 
 from flyappy_autonomy_code.core.flyappy_planning import GapFinder
@@ -25,7 +25,7 @@ class FlyappyPlanningNode(Node):
 
         # Internal state
         self._current_position = np.array([0.0, 1.0], dtype=np.float64)
-        self._obstacle_map = np.zeros((410, 410), dtype=np.uint8)
+        self._obstacle_map = np.full((410, 410), fill_value=-1, dtype=np.int8)
         self._hole = None
         self._target_pos = (0.0, 0.0)
 
@@ -37,7 +37,7 @@ class FlyappyPlanningNode(Node):
             Vector3, "/flyappy_estimated_position", self.position_callback, 10
         )
         self._sub_obstacle_map = self.create_subscription(
-            UInt8MultiArray, "/flyappy_obstacle_map", self.obstacle_map_callback, 10
+            OccupancyGrid, "/flyappy_obstacle_map", self.obstacle_map_callback, 10
         )
         self._sub_game_ended = self.create_subscription(Bool, "/flyappy_game_ended", self.game_ended_callback, 5)
 
@@ -52,8 +52,9 @@ class FlyappyPlanningNode(Node):
             f"Estimated position: [{msg.x:.2f},{msg.y:.2f}]", throttle_duration_sec=1
         )
 
-    def obstacle_map_callback(self, msg: UInt8MultiArray) -> None:
-        self._obstacle_map = np.array(msg.data, dtype=np.uint8).reshape((410, 410))
+    def obstacle_map_callback(self, msg: OccupancyGrid) -> None:
+        # Convert from ROS [-1, 0, 100] format and reshape to 2D
+        self._obstacle_map = np.array(msg.data, dtype=np.int8).reshape((msg.info.height, msg.info.width))
         self.get_logger().info(
             f"Obstacle map received with shape {self._obstacle_map.shape}", throttle_duration_sec=1
         )
@@ -70,7 +71,7 @@ class FlyappyPlanningNode(Node):
 
         # Reset state
         self._current_position = np.array([0.0, 1.0], dtype=np.float64)
-        self._obstacle_map = np.zeros((410, 410), dtype=np.uint8)
+        self._obstacle_map = np.full((410, 410), fill_value=-1, dtype=np.int8)
         self._hole = None
         self._target_pos = (0.0, 0.0)
 
@@ -114,7 +115,6 @@ class FlyappyPlanningNode(Node):
 
 
 def main(args=None) -> None:
-    import rclpy
 
     rclpy.init(args=args)
     node = FlyappyPlanningNode()

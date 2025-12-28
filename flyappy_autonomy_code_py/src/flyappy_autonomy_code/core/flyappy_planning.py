@@ -1,12 +1,16 @@
 import numpy as np
 from numpy import typing as npt
 
+
+
+
 class GapFinder:
 
     """ Class for the gap finding algorithm based on the occupancy grid map.
     The algorithm searches for free rows in a specified vertical slice of the map
     where the bird can pass through without colliding with obstacles.
     """
+
 
     def __init__(
             self,
@@ -22,23 +26,23 @@ class GapFinder:
         self.bird_pixel_size = bird_pixel_size
         self.slice_pixel_size = slice_pixel_size
     
+    
     def find_free_rows(
             self,
-            obstacle_map: npt.NDArray[np.uint8],
+            obstacle_map: npt.NDArray[np.int8],
             map_position: tuple[int, int],
             ) -> tuple[int, int]:
         """ Find free rows in the obstacle map for the bird to pass through.
 
         1. Extract the relevant slice of the obstacle map.
-        2. Inflate obstacles based on the bird's size.
+        2. Inflate obstacles in y direction based on the bird's size.
         3. Identify free rows in the inflated map.
         4. Select the best gap based on proximity to the current bird position.
         
         Args:
-            obstacle_map (npt.NDArray[np.uint8]): The occupancy grid map as a 2D array. Non-zero is treated as occupied.
-            pixel_position (tuple[int, int]): The current pixel position of the bird (x, y).
-            bird_pixel_size (float): The size of the bird in pixels.
-            slice_pixel_size (tuple[int, int]): The slice of the map to consider (start_row, end_row).
+            obstacle_map (npt.NDArray[np.int8]): The occupancy grid map as a 2D array. 
+                Uses ROS standard: -1=UNKNOWN, 0=FREE, 100=OCCUPIED.
+            map_position (tuple[int, int]): The current pixel position of the bird (x, y).
 
         Returns:
             tuple[int, int]: The (x, y) position of the center of the best gap found in map coordinates.
@@ -52,14 +56,15 @@ class GapFinder:
         bird_radius = int(np.ceil(self.bird_pixel_size / 2))
         inflated = slice_map.copy()
         
+        # Inflate by rolling occupied cells (100)
         for dy in range(-bird_radius, bird_radius + 1):
-            rolled = np.roll(slice_map == np.uint8(255), shift=dy, axis=1)
-            inflated[rolled] = np.uint8(255)
+            rolled = np.roll(slice_map == 100, shift=dy, axis=1)
+            inflated[rolled] = 100
         
         # Step 3: Identify free rows in the inflated map
-        # A row (y position) is considered free if all columns in that row are free or unknown (<= 127)
-        free_rows_mask = np.all(inflated <= np.uint8(127), axis=0)
-        free_row_indices = np.where(free_rows_mask)[int(0)]
+        # A row (y position) is considered free if all columns in that row are free (0) or unknown (-1)
+        free_rows_mask = np.all(inflated < 1, axis=0)
+        free_row_indices = np.where(free_rows_mask)[0]
         
         # Handle case with no free rows
         if free_row_indices.size == 0:

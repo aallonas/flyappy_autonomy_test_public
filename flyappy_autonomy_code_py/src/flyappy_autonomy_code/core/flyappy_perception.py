@@ -1,15 +1,81 @@
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import OccupancyGrid
 import numpy as np
 from numpy.typing import NDArray
 from typing import Tuple
 
-class OccupancyGridMapper:
 
+
+
+class LaserScanProcessor:
+    """Processes LaserScan messages into relative coordinates.
+
+    Caches angle, cos, and sin arrays to avoid recomputation when scan size and
+    angular parameters stay the same between messages.
+    """
+
+    def __init__(self) -> None:
+        self._cached_len: int | None = None
+        self._cached_angle_min: float | None = None
+        self._cached_angle_inc: float | None = None
+        self._angles: NDArray[np.float64] | None = None
+        self._cos: NDArray[np.float64] | None = None
+        self._sin: NDArray[np.float64] | None = None
+
+    def _update_cache(self, count: int, angle_min: float, angle_inc: float) -> None:
+        self._cached_len = count
+        self._cached_angle_min = angle_min
+        self._cached_angle_inc = angle_inc
+        self._angles = angle_min + np.arange(count, dtype=np.float64) * angle_inc
+        self._cos = np.cos(self._angles)
+        self._sin = np.sin(self._angles)
+
+    def process_scan(self,
+                     laser_scan: LaserScan
+                     ) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """ Process laser scan data into numpy arrays of relative cartesian coordinates.
+
+        Args:
+            laser_scan (LaserScan): Input laser scan data.
+        
+        Returns:
+            Tuple[NDArray[np.float64], NDArray[np.float64]]: 
+                - First array: Nx2 array of hit coordinates (obstacles) [[x, y], ...]
+                - Second array: Mx2 array of miss coordinates (free space) [[x, y], ...]
+        """
+        ranges = np.asarray(laser_scan.ranges, dtype=np.float64)
+        count = len(ranges)
+
+        # Refresh cached trigonometry if scan geometry changed
+        if (
+            self._cached_len != count
+            or self._cached_angle_min != laser_scan.angle_min
+            or self._cached_angle_inc != laser_scan.angle_increment
+        ):
+            self._update_cache(count, laser_scan.angle_min, laser_scan.angle_increment)
+
+        rel_x = ranges * self._cos
+        rel_y = ranges * self._sin
+        intensities = np.asarray(laser_scan.intensities, dtype=np.float64)
+
+        # Separate hits (intensity > 0) from misses (intensity == 0)
+        hit_mask = intensities > 0.0
+        miss_mask = ~hit_mask
+
+        hits = np.column_stack((rel_x[hit_mask], rel_y[hit_mask]))
+        misses = np.column_stack((rel_x[miss_mask], rel_y[miss_mask]))
+
+        return hits, misses
+
+
+
+
+class OccupancyGridMapper:
     """ Class for managing an occupancy grid map based on laser scan data. 
     The map is represented as a 2D numpy array with occupancy values:
-    - OCCUPIED (255): Cell is occupied by an obstacle.
+    - OCCUPIED (100): Cell is occupied by an obstacle.
     - FREE (0): Cell is free space.
-    - UNKNOWN (127): Cell has not been observed yet.
+    - UNKNOWN (-1): Cell has not been observed yet.
 
     Functionality:
     -The map can be rolled forward as the agent moves with: map_roll()
@@ -17,13 +83,13 @@ class OccupancyGridMapper:
     -The map can be reset to unknown values with: map_reset()
     -Conversion between world positions and map indices is provided with:
         map_position_to_index() and map_index_to_position()
-    -The current map can be obtained with: map_get()
+    -The current map can be obtained as an OccupancyGrid message with: map_get()
     """
 
-    # Ocupancy values
-    OCCUPIED = 255
+    # Occupancy values (ROS standard)
+    OCCUPIED = 100
     FREE = 0
-    UNKNOWN = 127
+    UNKNOWN = -1
 
     def __init__(
             self,
@@ -37,7 +103,7 @@ class OccupancyGridMapper:
         Args:
             map_resolution (float): Resolution of the map in meters per cell.
             map_size (Tuple[int, int]): Size of the map in number of cells (height, width).
-            origin (Tuple[float, float]): Origin of the map in world coordinates (x, y) [m].
+            map_origin (Tuple[float, float]): Origin of the map in world coordinates (x, y) [m].
             agent_size (int): Size of the agent in map cells (assumed square).
         """
         self.map_resolution = map_resolution
@@ -45,8 +111,12 @@ class OccupancyGridMapper:
         self.map_origin = map_origin
         self.agent_size = agent_size  
 
-        # Initialize map with unknown values
-        self.obstacle_map = np.full(self.map_size, fill_value=self.UNKNOWN, dtype=np.uint8)
+        # Reusable scan processor to avoid per-call allocations
+        self._scan_processor = LaserScanProcessor()
+
+        # Initialize map with unknown values (int8 for ROS compatibility)
+        self.obstacle_map = np.full(self.map_size, fill_value=self.UNKNOWN, dtype=np.int8)
+
 
     def map_roll(self,
                  position : tuple[float, float],
@@ -81,62 +151,85 @@ class OccupancyGridMapper:
 
 
     def map_add_scan(self,
-                     position : tuple[float, float],
-                     laser_scan : LaserScan
+                     position: tuple[float, float],
+                     laser_scan: LaserScan
                      ) -> None:
         """ Add a laser scan to the occupancy grid map.
-        
+
         Args:
             position (tuple[float, float]): Current position (x, y).
             laser_scan (LaserScan): Laser scan data.
-        
         """
         # Only update if laser scan is available
-        if laser_scan is not None:
+        if laser_scan is None:
+            return
 
-            # Sensor position in grid coordinates
-            rel_x = position[0] - self.map_origin[0] + self.map_resolution * self.agent_size
-            rel_y = position[1] - self.map_origin[1]
+        # Process laser scan to get hit and miss coordinates
+        hits, misses = self._scan_processor.process_scan(laser_scan)
 
-            # Sensor position in map indices
-            x0 = int(rel_x / self.map_resolution)
-            y0 = int(rel_y / self.map_resolution)
+        # Sensor position in grid coordinates (relative to map origin)
+        sensor_x = position[0] - self.map_origin[0] + self.map_resolution * self.agent_size
+        sensor_y = position[1] - self.map_origin[1]
 
-            H, W = self.map_size
+        # Sensor position in map indices
+        x0 = int(sensor_x / self.map_resolution)
+        y0 = int(sensor_y / self.map_resolution)
 
-            for i, distance in enumerate(laser_scan.ranges):
-            
-                angle = laser_scan.angle_min + i * laser_scan.angle_increment
+        H, W = self.map_size
 
-                # Endpoint relative to map origin
-                end_x = rel_x + distance * np.cos(angle)
-                end_y = rel_y + distance * np.sin(angle)
+        # Process misses (free space)
+        for miss in misses:
+            # Endpoint relative to map origin
+            end_x = sensor_x + miss[0]
+            end_y = sensor_y + miss[1]
 
-                # Endpoint in map indices
-                x1 = int(end_x / self.map_resolution)
-                y1 = int(end_y / self.map_resolution)
+            # Endpoint in map indices
+            x1 = int(end_x / self.map_resolution)
+            y1 = int(end_y / self.map_resolution)
 
-                # Get cells that are traversed by the laser beam
-                cells = self.raycast_dda((x0, y0), (x1, y1))
-                # Cells = self.bresenham((x0, y0), (x1, y1))
+            # Get cells traversed by the laser beam
+            cells = self.raycast_dda((x0, y0), (x1, y1))
 
-                # Check if cells are within map bounds
-                valid = (
-                        (cells[:, 0] >= 0) & (cells[:, 0] < H) &
-                        (cells[:, 1] >= 0) & (cells[:, 1] < W)
-                )
-                cells = cells[valid]
+            # Check if cells are within map bounds
+            valid = (
+                (cells[:, 0] >= 0) & (cells[:, 0] < H) &
+                (cells[:, 1] >= 0) & (cells[:, 1] < W)
+            )
+            cells = cells[valid]
 
-                # Check if any cells to be marked are unknown
-                unknown = self.obstacle_map[cells[:, 0], cells[:, 1]] == 127
-                # Mark ONLY unknown cells as free
-                self.obstacle_map[cells[unknown, 0], cells[unknown, 1]] = 0
+            # Mark ONLY unknown cells as free
+            unknown = self.obstacle_map[cells[:, 0], cells[:, 1]] == self.UNKNOWN
+            self.obstacle_map[cells[unknown, 0], cells[unknown, 1]] = self.FREE
 
-                # If Hit an obstacle, mark the endpoint as occupied
-                if laser_scan.intensities[i] > 0.0:
-                    # Check if endpoint is within map bounds
-                    if 0 <= x1 < H and 0 <= y1 < W:
-                        self.obstacle_map[x1, y1] = 255
+        # Process hits (obstacles)
+        for hit in hits:
+            # Endpoint relative to map origin
+            end_x = sensor_x + hit[0]
+            end_y = sensor_y + hit[1]
+
+            # Endpoint in map indices
+            x1 = int(end_x / self.map_resolution)
+            y1 = int(end_y / self.map_resolution)
+
+            # Get cells traversed by the laser beam (mark as free)
+            cells = self.raycast_dda((x0, y0), (x1, y1))
+
+            # Check if cells are within map bounds
+            valid = (
+                (cells[:, 0] >= 0) & (cells[:, 0] < H) &
+                (cells[:, 1] >= 0) & (cells[:, 1] < W)
+            )
+            cells = cells[valid]
+
+            # Mark ONLY unknown cells as free (except the endpoint)
+            if len(cells) > 1:  # Ensure there's more than just the endpoint
+                unknown = self.obstacle_map[cells[:-1, 0], cells[:-1, 1]] == self.UNKNOWN
+                self.obstacle_map[cells[:-1][unknown, 0], cells[:-1][unknown, 1]] = self.FREE
+
+            # Mark the endpoint as occupied if within bounds
+            if 0 <= x1 < H and 0 <= y1 < W:
+                self.obstacle_map[x1, y1] = self.OCCUPIED
+
 
     def map_position_to_index(self,
                        position: tuple[float, float]
@@ -151,6 +244,7 @@ class OccupancyGridMapper:
         """
         return (int(position[0] / self.map_resolution), int(position[1] / self.map_resolution))
     
+
     def map_index_to_position(self,
                        index: tuple[int, int]
                        ) -> tuple[float, float]:
@@ -164,20 +258,48 @@ class OccupancyGridMapper:
         """
         return (index[0] * self.map_resolution, index[1] * self.map_resolution)
 
+
     def reset(
             self
             ) -> None:
         """ Reset the occupancy grid map to unknown values and origin to (0,0). """
-        self.obstacle_map.fill(127)
+        self.obstacle_map.fill(self.UNKNOWN)
         self.map_origin = (0.0, 0.0)
 
-    def map_get(
-            self
-            ) -> NDArray[np.uint8]:
-        """ Get the current occupancy grid map. """
-        return self.obstacle_map.copy()
+
+
+    def map_get(self) -> OccupancyGrid:
+        """ Get the current occupancy grid map as a ROS OccupancyGrid message.
+        
+        Returns:
+            OccupancyGrid: Current occupancy grid map.
+        """
+        grid_msg = OccupancyGrid()
+        
+        # Header
+        grid_msg.header.frame_id = "map"
+        # Note: timestamp should be set by the node publishing this
+        
+        # Map metadata
+        grid_msg.info.resolution = float(self.map_resolution)
+        grid_msg.info.width = self.map_size[1]  # Width in cells
+        grid_msg.info.height = self.map_size[0]  # Height in cells
+        
+        # Origin (bottom-left corner of the map in world coordinates)
+        grid_msg.info.origin.position.x = float(self.map_origin[0])
+        grid_msg.info.origin.position.y = float(self.map_origin[1])
+        grid_msg.info.origin.position.z = 0.0
+        grid_msg.info.origin.orientation.w = 1.0  # No rotation
+        
+        # Map data (row-major order, flattened)
+        # ROS uses [-1, 0, 100] format which matches our internal representation
+        grid_msg.data = self.obstacle_map.flatten().tolist()
+        
+        return grid_msg
+
 
 # === Line drawing algorithms ===
+
 
     def bresenham(self,
                   start : Tuple[int, int],
@@ -207,6 +329,7 @@ class OccupancyGridMapper:
         points.append([x0, y0])
         return np.array(points, dtype=np.int_)
     
+
     def raycast_dda(self,
                     start: Tuple[int, int],
                     finish: Tuple[int, int]
@@ -228,7 +351,9 @@ class OccupancyGridMapper:
 
         return np.column_stack((xs, ys))
     
+    
 # === End of line drawing algorithms ===
+
 
 
 
@@ -253,6 +378,7 @@ class PositionEstimator:
         """
         self.current_position: Tuple[float, float] = initial_position
 
+
     def update_position(
             self,
             current_velocity: Tuple[float, float],
@@ -275,6 +401,7 @@ class PositionEstimator:
         y_pos = self.current_position[1] + current_velocity[1] * timestep
         self.current_position = (x_pos, y_pos)
 
+
     def get_position(
             self
             ) -> Tuple[float, float]:
@@ -284,6 +411,7 @@ class PositionEstimator:
             Tuple[float, float]: Current position (x, y).
         """
         return self.current_position
+
 
     def set_position(
             self,
@@ -295,6 +423,7 @@ class PositionEstimator:
             position (Tuple[float, float]): New position (x, y).
         """
         self.current_position = position
+
 
     def reset(
             self

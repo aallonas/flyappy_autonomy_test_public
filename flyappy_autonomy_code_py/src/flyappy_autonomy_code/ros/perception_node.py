@@ -1,14 +1,13 @@
 import time
-
+import rclpy
 import numpy as np
-import cv2
 from rclpy.node import Node
-from std_msgs.msg import UInt8MultiArray
+from nav_msgs.msg import OccupancyGrid
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Bool
 
-from flyappy_autonomy_code.core.flyappy_perception import OccupancyGridMapper, PositionEstimator
+from flyappy_autonomy_code.core.flyappy_perception import OccupancyGridMapper, PositionEstimator, LaserScanProcessor
 
 
 class FlyappyPerceptionNode(Node):
@@ -18,6 +17,7 @@ class FlyappyPerceptionNode(Node):
         # Parameters and rates
         self.perception_rate = self.declare_parameter("perception_rate", 30.0).value
         self.perception_period = 1.0 / self.perception_rate
+
         self.debug_mode = self.declare_parameter("debug_mode", True).value
 
         # Perception modules
@@ -28,12 +28,12 @@ class FlyappyPerceptionNode(Node):
         self._current_position = np.array([0.0, 1.0], dtype=np.float64)
         self._current_velocity = np.array([0.0, 0.0], dtype=np.float64)
         self._current_laser_scan: LaserScan | None = None
-        self._obstacle_map = np.zeros((450,), dtype=np.uint8)
 
         # Publisher: estimated position and obstacle map
         self._pub_position = self.create_publisher(Vector3, "/flyappy_estimated_position", 1)
-        self._pub_obstacle_map = self.create_publisher(UInt8MultiArray, "/flyappy_obstacle_map", 1)  
+        self._pub_obstacle_map = self.create_publisher(OccupancyGrid, "/flyappy_obstacle_map", 1)  
 
+        self._scan_processor = LaserScanProcessor()
         # Subscribers: velocity and laser scan from Flyappy game
         self._sub_vel = self.create_subscription(Vector3, "/flyappy_vel", self.velocity_callback, 10)
         self._sub_laser_scan = self.create_subscription(LaserScan, "/flyappy_laser_scan", self.laser_scan_callback, 10)
@@ -69,7 +69,6 @@ class FlyappyPerceptionNode(Node):
         self._current_position = np.array([0.0, 1.0], dtype=np.float64)
         self._current_velocity = np.array([0.0, 0.0], dtype=np.float64)
         self._current_laser_scan = None
-        self._obstacle_map = np.zeros((450,), dtype=np.uint8)
 
     def perception_callback(self) -> None:
         start_time = time.perf_counter()
@@ -89,20 +88,17 @@ class FlyappyPerceptionNode(Node):
             if self._current_laser_scan is not None:
                 self._occupancy_grid_mapper.map_add_scan(self._current_position, self._current_laser_scan)
 
-            # Get current obstacle map
-            self._obstacle_map = self._occupancy_grid_mapper.map_get()
-            map_msg = UInt8MultiArray()
-            map_msg.data = self._obstacle_map.flatten().tolist()
-            self._pub_obstacle_map.publish(map_msg)
+            # Get current obstacle map as OccupancyGrid message
+            obstacle_map_msg = self._occupancy_grid_mapper.map_get()
+            
+            # Set timestamp
+            obstacle_map_msg.header.stamp = self.get_clock().now().to_msg()
+            
+            # Publish obstacle map
+            self._pub_obstacle_map.publish(obstacle_map_msg)
 
             # Publish estimated position
             self._pub_position.publish(Vector3(x=float(self._current_position[0]), y=float(self._current_position[1]), z=0.0))
-
-            # Debug map display
-            if self.debug_mode:
-                display_map = self._occupancy_grid_mapper.map_get()
-                cv2.imshow("Obstacle Map", display_map)
-                cv2.waitKey(1)
 
             self.get_logger().info(
                 f"Estimated position: [{self._current_position[0]:.2f},{self._current_position[1]:.2f}]",
@@ -118,7 +114,6 @@ class FlyappyPerceptionNode(Node):
 
 
 def main(args=None) -> None:
-    import rclpy
 
     rclpy.init(args=args)
     node = FlyappyPerceptionNode()
